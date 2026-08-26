@@ -17,5 +17,5 @@ HR_AGENT_URL = os.getenv("HR_AGENT_URL", "http://127.0.0.1:8211")
 PRODUCT_AGENT_URL = os.getenv(
     "PRODUCT_AGENT_URL", "http://127.0.0.1:8212"
 )
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 DATA_DIR = Path(__file__).resolve().parent / "data"
