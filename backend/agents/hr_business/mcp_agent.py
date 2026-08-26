@@ -35,7 +35,13 @@ class HRBusinessMCPAgent:
         if retrieval["message"]:
             answer = retrieval["message"]
         elif os.getenv("GEMINI_API_KEY"):
-            answer = await self._answer_with_gemini(query, retrieval["matches"])
+            try:
+                answer = await self._answer_with_gemini(
+                    query, retrieval["matches"]
+                )
+            except Exception:
+                # Invalid, denied, or rate-limited credentials must not break RAG.
+                answer = retrieval["matches"][0]["text"].replace("#", "").strip()
         else:
             answer = retrieval["matches"][0]["text"].replace("#", "").strip()
 

@@ -45,13 +45,17 @@ class ProductOrderMCPAgent:
 
     async def invoke(self, query: str, context_id: str) -> dict[str, Any]:
         if self.agent:
-            response: RunOutput = await self.agent.arun(
-                query, session_id=context_id
-            )
-            return {
-                "is_task_complete": True,
-                "content": str(response.content),
-            }
+            try:
+                response: RunOutput = await self.agent.arun(
+                    query, session_id=context_id
+                )
+                return {
+                    "is_task_complete": True,
+                    "content": str(response.content),
+                }
+            except Exception:
+                # Keep the local demo useful for denied, invalid, or rate-limited keys.
+                pass
 
         # A deterministic local fallback keeps the demo usable without an API key.
         # Production execution above uses Agno's LLM-based tool selection.
