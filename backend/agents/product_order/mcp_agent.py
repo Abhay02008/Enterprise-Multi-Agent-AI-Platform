@@ -7,6 +7,7 @@ from typing import Any
 
 from agno.agent import Agent, RunOutput
 from agno.models.google import Gemini
+from agno.run.agent import RunStatus
 from agno.tools.mcp import MCPTools
 
 from backend.config import GEMINI_MODEL, PRODUCT_MCP_URL
@@ -49,10 +50,11 @@ class ProductOrderMCPAgent:
                 response: RunOutput = await self.agent.arun(
                     query, session_id=context_id
                 )
-                return {
-                    "is_task_complete": True,
-                    "content": str(response.content),
-                }
+                if response.status == RunStatus.completed:
+                    return {
+                        "is_task_complete": True,
+                        "content": str(response.content),
+                    }
             except Exception:
                 # Keep the local demo useful for denied, invalid, or rate-limited keys.
                 pass
