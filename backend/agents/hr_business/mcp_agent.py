@@ -5,9 +5,9 @@ import os
 from typing import Any
 
 from agno.tools.mcp import MCPTools
-from google import genai
+from groq import AsyncGroq
 
-from backend.config import GEMINI_MODEL, HR_MCP_URL
+from backend.config import GROQ_MAX_TOKENS, GROQ_MODEL, HR_MCP_URL
 
 
 class HRBusinessMCPAgent:
@@ -34,9 +34,9 @@ class HRBusinessMCPAgent:
         retrieval = json.loads(result.content[0].text)
         if retrieval["message"]:
             answer = retrieval["message"]
-        elif os.getenv("GEMINI_API_KEY"):
+        elif os.getenv("GROQ_API_KEY"):
             try:
-                answer = await self._answer_with_gemini(
+                answer = await self._answer_with_groq(
                     query, retrieval["matches"]
                 )
             except Exception:
@@ -55,26 +55,56 @@ class HRBusinessMCPAgent:
         return f"{title}: {body}" if title else body
 
     @staticmethod
-    async def _answer_with_gemini(query: str, matches: list[dict]) -> str:
+    def _completion_request(query: str, matches: list[dict]) -> dict[str, Any]:
+        """Build the Groq chat request for a grounded, source-cited answer."""
         context = "\n\n".join(
             f"Source: {match['source']}\n"
             f"Document: {match.get('title') or match['source']}\n"
             f"{match['text']}"
             for match in matches
         )
-        client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+        return {
+            "model": GROQ_MODEL,
+            "temperature": 0,
+            "max_tokens": GROQ_MAX_TOKENS,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You answer employee questions about enterprise HR and "
+                        "business documents. Use only the supplied context, "
+                        "never outside knowledge. Be concise and name the "
+                        "source file. Reply in plain text: no Markdown, no "
+                        "asterisks, and no headings, because the chat UI "
+                        "renders your answer verbatim."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"Question: {query}\n\nContext:\n{context}",
+                },
+            ],
+        }
+
+    @staticmethod
+    def _answer_text(completion: Any) -> str:
+        answer = (completion.choices[0].message.content or "").strip()
+        if not answer:
+            # A reasoning model that exhausts the token budget returns an empty
+            # message; let the caller fall back to retrieved text.
+            raise ValueError("Groq returned an empty answer.")
+        return answer
+
+    @classmethod
+    async def _answer_with_groq(cls, query: str, matches: list[dict]) -> str:
+        client = AsyncGroq(api_key=os.environ["GROQ_API_KEY"])
         try:
-            response = await client.aio.models.generate_content(
-                model=GEMINI_MODEL,
-                contents=(
-                    "Answer the employee's question using only the supplied "
-                    "enterprise context. Be concise and mention the source file.\n\n"
-                    f"Question: {query}\n\nContext:\n{context}"
-                ),
+            completion = await client.chat.completions.create(
+                **cls._completion_request(query, matches)
             )
-            return response.text or "The retrieved policy did not contain an answer."
+            return cls._answer_text(completion)
         finally:
-            await client.aio.aclose()
+            await client.close()
 
     async def close(self) -> None:
         await self.mcp_tools.close()

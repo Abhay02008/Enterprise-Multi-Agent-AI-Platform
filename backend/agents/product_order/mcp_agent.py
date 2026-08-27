@@ -7,11 +7,11 @@ from collections.abc import Callable
 from typing import Any
 
 from agno.agent import Agent, RunOutput
-from agno.models.google import Gemini
+from agno.models.groq import Groq
 from agno.run.agent import RunStatus
 from agno.tools.mcp import MCPTools
 
-from backend.config import GEMINI_MODEL, PRODUCT_MCP_URL
+from backend.config import GROQ_MAX_TOKENS, GROQ_MODEL, PRODUCT_MCP_URL
 
 
 class ProductOrderMCPAgent:
@@ -29,21 +29,38 @@ class ProductOrderMCPAgent:
                 f"Product and Order MCP server is unavailable at {self.mcp_tools.url}"
             )
 
-        api_key = os.getenv("GEMINI_API_KEY")
+        api_key = os.getenv("GROQ_API_KEY")
         if api_key:
             self.agent = Agent(
                 name="Enterprise Product and Order Agent",
-                model=Gemini(id=GEMINI_MODEL, api_key=api_key, temperature=0),
+                model=self._build_model(api_key),
                 tools=[self.mcp_tools],
                 instructions=[
                     "Use the MCP tools for every product, inventory, or order fact.",
                     "Choose exactly the tool that matches the request.",
                     "Never invent product, stock, or order data.",
                     "Give a concise business answer and preserve IDs and quantities.",
+                    "When the request names no specific product, call the tool "
+                    "with no filters to report every row instead of asking the "
+                    "user to narrow it down.",
+                    "List each inventory row with its own warehouse and quantity.",
+                    "Write currency with two decimal places, such as $89.00.",
+                    "Reply in plain text: no Markdown, no asterisks, and no "
+                    "headings, because the chat UI renders your answer verbatim.",
                 ],
                 tool_call_limit=3,
                 markdown=False,
             )
+
+    @staticmethod
+    def _build_model(api_key: str) -> Groq:
+        """Groq model that Agno uses to pick an MCP tool."""
+        return Groq(
+            id=GROQ_MODEL,
+            api_key=api_key,
+            temperature=0,
+            max_tokens=GROQ_MAX_TOKENS,
+        )
 
     async def invoke(self, query: str, context_id: str) -> dict[str, Any]:
         if self.agent:

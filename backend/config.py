@@ -17,5 +17,10 @@ HR_AGENT_URL = os.getenv("HR_AGENT_URL", "http://127.0.0.1:8211")
 PRODUCT_AGENT_URL = os.getenv(
     "PRODUCT_AGENT_URL", "http://127.0.0.1:8212"
 )
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+
+# The default model reasons before answering, and reasoning shares this budget.
+# Too small a budget returns an empty message with finish_reason "length".
+GROQ_MAX_TOKENS = int(os.getenv("GROQ_MAX_TOKENS", "1024"))
+
 DATA_DIR = Path(__file__).resolve().parent / "data"
