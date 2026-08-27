@@ -11,7 +11,13 @@ from agno.models.groq import Groq
 from agno.run.agent import RunStatus
 from agno.tools.mcp import MCPTools
 
-from backend.config import GROQ_MAX_TOKENS, GROQ_MODEL, PRODUCT_MCP_URL
+from backend.config import (
+    GROQ_MAX_RETRIES,
+    GROQ_MAX_TOKENS,
+    GROQ_MODEL,
+    GROQ_TIMEOUT_SECONDS,
+    PRODUCT_MCP_URL,
+)
 
 
 class ProductOrderMCPAgent:
@@ -60,6 +66,8 @@ class ProductOrderMCPAgent:
             api_key=api_key,
             temperature=0,
             max_tokens=GROQ_MAX_TOKENS,
+            timeout=int(GROQ_TIMEOUT_SECONDS),
+            max_retries=GROQ_MAX_RETRIES,
         )
 
     async def invoke(self, query: str, context_id: str) -> dict[str, Any]:

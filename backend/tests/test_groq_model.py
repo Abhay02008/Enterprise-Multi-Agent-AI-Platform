@@ -7,7 +7,12 @@ from agno.models.groq import Groq
 
 from backend.agents.hr_business.mcp_agent import HRBusinessMCPAgent
 from backend.agents.product_order.mcp_agent import ProductOrderMCPAgent
-from backend.config import GROQ_MAX_TOKENS, GROQ_MODEL
+from backend.config import (
+    GROQ_MAX_RETRIES,
+    GROQ_MAX_TOKENS,
+    GROQ_MODEL,
+    GROQ_TIMEOUT_SECONDS,
+)
 from backend.mcp_servers.hr_business_server import search_hr_policy_data
 
 
@@ -30,6 +35,15 @@ def test_agno_tool_selection_uses_groq():
     assert model.api_key == "test-key"
     assert model.temperature == 0
     assert model.max_tokens == GROQ_MAX_TOKENS
+    assert model.timeout == int(GROQ_TIMEOUT_SECONDS)
+    assert model.max_retries == GROQ_MAX_RETRIES
+
+
+def test_groq_attempts_fit_inside_the_host_task_budget():
+    """The Host allows 60 s per task; a hung Groq call must fail sooner so the
+    deterministic fallback still answers instead of timing out the A2A client."""
+    worst_case = GROQ_TIMEOUT_SECONDS * (1 + GROQ_MAX_RETRIES)
+    assert worst_case < 60
 
 
 def test_retrieval_request_grounds_the_model_in_retrieved_context():

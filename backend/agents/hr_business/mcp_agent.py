@@ -7,7 +7,13 @@ from typing import Any
 from agno.tools.mcp import MCPTools
 from groq import AsyncGroq
 
-from backend.config import GROQ_MAX_TOKENS, GROQ_MODEL, HR_MCP_URL
+from backend.config import (
+    GROQ_MAX_RETRIES,
+    GROQ_MAX_TOKENS,
+    GROQ_MODEL,
+    GROQ_TIMEOUT_SECONDS,
+    HR_MCP_URL,
+)
 
 
 class HRBusinessMCPAgent:
@@ -97,7 +103,11 @@ class HRBusinessMCPAgent:
 
     @classmethod
     async def _answer_with_groq(cls, query: str, matches: list[dict]) -> str:
-        client = AsyncGroq(api_key=os.environ["GROQ_API_KEY"])
+        client = AsyncGroq(
+            api_key=os.environ["GROQ_API_KEY"],
+            timeout=GROQ_TIMEOUT_SECONDS,
+            max_retries=GROQ_MAX_RETRIES,
+        )
         try:
             completion = await client.chat.completions.create(
                 **cls._completion_request(query, matches)
