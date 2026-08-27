@@ -1,0 +1,30 @@
+[
+  {
+    "product_id": "P1001",
+    "name": "Northstar Pro Laptop",
+    "category": "Electronics",
+    "price": 1299.00,
+    "description": "14-inch enterprise laptop with 16 GB RAM and 512 GB SSD"
+  },
+  {
+    "product_id": "P1002",
+    "name": "Northstar 27-inch Monitor",
+    "category": "Electronics",
+    "price": 349.00,
+    "description": "4K USB-C business monitor with integrated docking"
+  },
+  {
+    "product_id": "P1003",
+    "name": "Ergonomic Keyboard",
+    "category": "Accessories",
+    "price": 89.00,
+    "description": "Wireless split keyboard for office workstations"
+  },
+  {
+    "product_id": "P2001",
+    "name": "Warehouse Scanner",
+    "category": "Industrial",
+    "price": 599.00,
+    "description": "Rugged handheld barcode scanner with Wi-Fi 6"
+  }
+]

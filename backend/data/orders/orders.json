@@ -1,0 +1,26 @@
+[
+  {
+    "order_id": "ORD1001",
+    "product_id": "P1001",
+    "quantity": 5,
+    "customer": "Acme Manufacturing",
+    "status": "Pending",
+    "expected_delivery": "2026-09-04"
+  },
+  {
+    "order_id": "ORD1002",
+    "product_id": "P1002",
+    "quantity": 12,
+    "customer": "Blue River Logistics",
+    "status": "Shipped",
+    "expected_delivery": "2026-08-29"
+  },
+  {
+    "order_id": "ORD1003",
+    "product_id": "P2001",
+    "quantity": 3,
+    "customer": "Vertex Warehousing",
+    "status": "Delivered",
+    "expected_delivery": "2026-08-20"
+  }
+]
