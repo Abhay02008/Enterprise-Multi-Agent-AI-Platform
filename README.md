@@ -124,7 +124,7 @@ perform LLM reasoning.
 
 1. configure Agno's MCP integration;
 2. connect to the Product/Order MCP endpoint;
-3. create an Agno `Agent` with a Gemini model;
+3. create an Agno `Agent` with a Groq model;
 4. make only the MCP-hosted tools visible to Agno;
 5. invoke Agno with query and session/context ID;
 6. normalize the `RunOutput`;
@@ -133,7 +133,7 @@ perform LLM reasoning.
 Agno decides **which MCP tool should be invoked**. It never opens the JSON data
 files. If no usable model credential is present, a small deterministic fallback
 uses the same MCP contracts so the local demo remains runnable. The production
-Agno path is used whenever Gemini completes successfully.
+Agno path is used whenever Groq completes successfully.
 
 The fallback formats tool rows as prose rather than returning raw JSON, and
 reports inventory per warehouse row so a multi-product total is never
@@ -168,7 +168,7 @@ Markdown documents
   -> in-memory TF-IDF vector embeddings
   -> cosine similarity
   -> top relevant chunks
-  -> Gemini answer (or titled retrieved-context fallback)
+  -> Groq answer (or titled retrieved-context fallback)
 ```
 
 Each document's `#` heading is stored as chunk metadata rather than as body
@@ -275,9 +275,27 @@ uv venv --python 3.12 .venv
 uv pip install --python .venv/bin/python -r backend/requirements.txt
 ```
 
-Set `GEMINI_API_KEY` in `.env` to enable LLM routing and answer generation.
-Never commit `.env`. The project still runs with deterministic local fallbacks
-when the key is missing, denied, or rate-limited.
+### Model credentials
+
+Set `GROQ_API_KEY` in `.env` to enable Groq answer generation and Agno's
+model-driven MCP tool selection. Create a key at
+[console.groq.com/keys](https://console.groq.com/keys). `.env` is gitignored;
+never commit it.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `GROQ_API_KEY` | unset | Enables the Groq path; unset uses local fallbacks |
+| `GROQ_MODEL` | `openai/gpt-oss-120b` | Chat model for both remote agents |
+| `GROQ_MAX_TOKENS` | `1024` | Shared budget for reasoning plus the answer |
+
+The default model reasons before answering, and that reasoning is billed
+against the same token budget as the reply. If `GROQ_MAX_TOKENS` is too small
+the API returns an empty message with `finish_reason: "length"`, so both agents
+treat an empty answer as a failure and fall back to retrieved context rather
+than showing a blank reply.
+
+The project still runs with deterministic local fallbacks when the key is
+missing, denied, or rate-limited.
 
 ## Run all services
 
