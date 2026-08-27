@@ -32,6 +32,13 @@ async def test_host_routes_inventory_from_discovered_skills():
     assert client.selected == "Enterprise Product and Order Agent"
 
 
+async def test_host_routes_pricing_from_advertised_examples():
+    client = FakeA2AClient()
+    host = HostAgent(client=client)
+    await host.chat("What is the price of the ergonomic keyboard?", "session-4")
+    assert client.selected == "Enterprise Product and Order Agent"
+
+
 async def test_host_handles_unknown_request():
     host = HostAgent(client=FakeA2AClient())
     response = await host.chat("Tell me a joke", "session-3")

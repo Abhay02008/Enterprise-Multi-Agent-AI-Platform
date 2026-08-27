@@ -41,9 +41,16 @@ agent_card = AgentCard(
         AgentSkill(
             id="product_search",
             name="Product Search",
-            description="Find products by ID, name, or category.",
-            tags=["product", "catalog", "category"],
-            examples=["Show me information about product P1001."],
+            description=(
+                "Find product details, pricing, and specifications by ID, "
+                "name, or category."
+            ),
+            tags=["product", "catalog", "category", "price", "cost"],
+            examples=[
+                "Show me information about product P1001.",
+                "What is the price of the ergonomic keyboard?",
+                "Find products in the electronics category.",
+            ],
         ),
         AgentSkill(
             id="inventory_lookup",
