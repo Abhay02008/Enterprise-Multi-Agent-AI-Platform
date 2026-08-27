@@ -135,6 +135,10 @@ files. If no usable model credential is present, a small deterministic fallback
 uses the same MCP contracts so the local demo remains runnable. The production
 Agno path is used whenever Gemini completes successfully.
 
+The fallback formats tool rows as prose rather than returning raw JSON, and
+reports inventory per warehouse row so a multi-product total is never
+attributed to a single product.
+
 ### MCP and FastMCP
 
 MCP is the standardized agent-to-tool/data protocol. FastMCP owns the tool
@@ -158,13 +162,20 @@ The transparent local RAG implementation is in `backend/rag/retriever.py`:
 
 ```text
 Markdown documents
-  -> 90-word overlapping chunks
-  -> tokenization
+  -> heading separated from body
+  -> 90-word overlapping body chunks
+  -> tokenization (heading terms included)
   -> in-memory TF-IDF vector embeddings
   -> cosine similarity
   -> top relevant chunks
-  -> Gemini answer (or retrieved-context fallback)
+  -> Gemini answer (or titled retrieved-context fallback)
 ```
+
+Each document's `#` heading is stored as chunk metadata rather than as body
+text. The heading still contributes to the embedding, so heading-only wording
+such as "work from home" retrieves its document, while answers read as
+`Work From Home Policy: Employees in eligible roles may ...` instead of
+running the title into the first sentence.
 
 This deliberately avoids a vector database and a large RAG framework. The MCP
 server owns retrieval; the Host does not know where or how documents are
@@ -255,6 +266,15 @@ npm install
 cd ..
 ```
 
+On Debian and Ubuntu, `python3 -m venv` needs the `python3-venv` package. If it
+is unavailable, [uv](https://docs.astral.sh/uv/) creates the same environment
+without it:
+
+```bash
+uv venv --python 3.12 .venv
+uv pip install --python .venv/bin/python -r backend/requirements.txt
+```
+
 Set `GEMINI_API_KEY` in `.env` to enable LLM routing and answer generation.
 Never commit `.env`. The project still runs with deterministic local fallbacks
 when the key is missing, denied, or rate-limited.
@@ -325,6 +345,8 @@ The live script validates:
 - Is product P1001 in stock?
 - What is the status of order ORD1001?
 - Show me pending orders.
+- What is the price of the ergonomic keyboard?
+- What inventory is available?
 
 ## Error handling
 
