@@ -351,6 +351,32 @@ The live script validates:
 - ORD1001 status → Product A2A → Agno/MCP → order status;
 - P1001 details → Product A2A → Agno/MCP → product search.
 
+## Troubleshooting
+
+With all services running, time every layer at once:
+
+```bash
+.venv/bin/python -m backend.diagnose
+```
+
+Each line reports PASS, FAIL, or HANG with elapsed seconds, covering the two
+MCP servers, both A2A agent cards, the Groq key (GET and POST separately,
+because some networks block only POST), each remote agent invoked directly,
+and finally the full `/chat` flow through the Host. Whichever line fails or
+hangs first is the layer to fix.
+
+Common cases:
+
+- `[WinError 10048] only one usage of each socket address`: the port is
+  already taken, usually by an earlier copy of the same service. Find the
+  owner with `netstat -ano | findstr :<port>` and stop it, or reuse the
+  running one.
+- `... is currently unavailable: Client Request timed out`: a remote agent
+  exceeded the Host's 60-second task budget. Run the diagnose script and look
+  for the HANG line.
+- 401 from Groq: the key in `.env` is wrong or was rotated; services read
+  `.env` at startup, so restart them after changing it.
+
 ## Example queries
 
 - What is the work from home policy?
