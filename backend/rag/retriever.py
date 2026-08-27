@@ -10,6 +10,7 @@ from pathlib import Path
 @dataclass
 class DocumentChunk:
     source: str
+    title: str
     text: str
     vector: dict[str, float]
 
@@ -19,17 +20,32 @@ def _tokens(text: str) -> list[str]:
     return re.findall(r"[a-z0-9]+", text.lower())
 
 
-def load_and_chunk(folders: list[Path], chunk_words: int = 90) -> list[tuple[str, str]]:
-    """Load Markdown documents and split them into overlapping word chunks."""
-    chunks: list[tuple[str, str]] = []
+def split_title(raw: str) -> tuple[str, str]:
+    """Separate a leading Markdown heading from the document body."""
+    lines = raw.strip().splitlines()
+    if lines and lines[0].lstrip().startswith("#"):
+        return lines[0].lstrip("# ").strip(), "\n".join(lines[1:])
+    return "", raw
+
+
+def load_and_chunk(
+    folders: list[Path], chunk_words: int = 90
+) -> list[tuple[str, str, str]]:
+    """Load Markdown documents and split their bodies into overlapping chunks.
+
+    The heading is kept out of the chunk body so answers do not run the title
+    into the first sentence; it is returned separately for display and scoring.
+    """
+    chunks: list[tuple[str, str, str]] = []
     for folder in folders:
         for path in sorted(folder.glob("*.md")):
-            words = path.read_text(encoding="utf-8").split()
+            title, body = split_title(path.read_text(encoding="utf-8"))
+            words = body.split()
             step = max(1, chunk_words - 20)
             for start in range(0, len(words), step):
                 text = " ".join(words[start : start + chunk_words])
                 if text:
-                    chunks.append((path.name, text))
+                    chunks.append((path.name, title, text))
     return chunks
 
 
@@ -38,7 +54,11 @@ class SimpleRetriever:
 
     def __init__(self, folders: list[Path]):
         raw_chunks = load_and_chunk(folders)
-        tokenized = [_tokens(text) for _, text in raw_chunks]
+        # The title is embedded with the body so heading-only wording such as
+        # "work from home" still retrieves its document.
+        tokenized = [
+            _tokens(f"{title} {text}") for _, title, text in raw_chunks
+        ]
         document_count = max(1, len(tokenized))
         document_frequency = Counter(
             token for terms in tokenized for token in set(terms)
@@ -48,8 +68,10 @@ class SimpleRetriever:
             for token, count in document_frequency.items()
         }
         self.chunks = [
-            DocumentChunk(source, text, self._embed_terms(terms))
-            for (source, text), terms in zip(raw_chunks, tokenized, strict=True)
+            DocumentChunk(source, title, text, self._embed_terms(terms))
+            for (source, title, text), terms in zip(
+                raw_chunks, tokenized, strict=True
+            )
         ]
 
     def _embed_terms(self, terms: list[str]) -> dict[str, float]:
@@ -82,6 +104,7 @@ class SimpleRetriever:
         return [
             {
                 "source": chunk.source,
+                "title": chunk.title,
                 "text": chunk.text,
                 "score": round(score, 3),
             }

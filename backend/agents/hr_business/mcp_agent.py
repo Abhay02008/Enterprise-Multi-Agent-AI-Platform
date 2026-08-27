@@ -41,16 +41,26 @@ class HRBusinessMCPAgent:
                 )
             except Exception:
                 # Invalid, denied, or rate-limited credentials must not break RAG.
-                answer = retrieval["matches"][0]["text"].replace("#", "").strip()
+                answer = self._format_retrieved(retrieval["matches"][0])
         else:
-            answer = retrieval["matches"][0]["text"].replace("#", "").strip()
+            answer = self._format_retrieved(retrieval["matches"][0])
 
         return {"is_task_complete": True, "content": answer}
 
     @staticmethod
+    def _format_retrieved(match: dict) -> str:
+        """Render one retrieved chunk as a readable answer without an LLM."""
+        body = " ".join(str(match["text"]).split())
+        title = str(match.get("title") or "").strip()
+        return f"{title}: {body}" if title else body
+
+    @staticmethod
     async def _answer_with_gemini(query: str, matches: list[dict]) -> str:
         context = "\n\n".join(
-            f"Source: {match['source']}\n{match['text']}" for match in matches
+            f"Source: {match['source']}\n"
+            f"Document: {match.get('title') or match['source']}\n"
+            f"{match['text']}"
+            for match in matches
         )
         client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
         try:

@@ -3,6 +3,7 @@
 import json
 import os
 import re
+from collections.abc import Callable
 from typing import Any
 
 from agno.agent import Agent, RunOutput
@@ -69,11 +70,18 @@ class ProductOrderMCPAgent:
             "content": self._format_fallback(tool_name, data),
         }
 
-    @staticmethod
-    def _fallback_tool_choice(query: str) -> tuple[str, dict]:
+    PRODUCT_NAME_WORDS = ("laptop", "monitor", "keyboard", "scanner")
+    CATEGORY_WORDS = ("electronics", "accessories", "industrial")
+    ORDER_STATUS_WORDS = ("pending", "shipped", "delivered")
+
+    @classmethod
+    def _fallback_tool_choice(cls, query: str) -> tuple[str, dict]:
         lower = query.lower()
         product_id = re.search(r"\bP\d{4}\b", query, re.IGNORECASE)
         order_id = re.search(r"\bORD\d{4}\b", query, re.IGNORECASE)
+        name = next(
+            (word for word in cls.PRODUCT_NAME_WORDS if word in lower), None
+        )
 
         if "order" in lower and order_id and (
             "status" in lower or "where" in lower
@@ -81,7 +89,7 @@ class ProductOrderMCPAgent:
             return "get_order_status", {"order_id": order_id.group().upper()}
         if "order" in lower:
             status = next(
-                (value for value in ["pending", "shipped", "delivered"] if value in lower),
+                (word for word in cls.ORDER_STATUS_WORDS if word in lower),
                 None,
             )
             return "search_orders", {
@@ -89,45 +97,82 @@ class ProductOrderMCPAgent:
                 "product_id": product_id.group().upper() if product_id else None,
             }
         if any(word in lower for word in ["stock", "inventory", "available"]):
-            name = next(
-                (
-                    value
-                    for value in ["laptop", "monitor", "keyboard", "scanner"]
-                    if value in lower
-                ),
-                None,
-            )
             return "check_inventory", {
                 "product_id": product_id.group().upper() if product_id else None,
                 "product_name": name,
             }
         category = next(
-            (value for value in ["electronics", "accessories", "industrial"] if value in lower),
-            None,
+            (word for word in cls.CATEGORY_WORDS if word in lower), None
         )
         return "search_products", {
             "product_id": product_id.group().upper() if product_id else None,
+            "name": name,
             "category": category,
         }
 
-    @staticmethod
-    def _format_fallback(tool_name: str, data: dict) -> str:
+    @classmethod
+    def _format_fallback(cls, tool_name: str, data: dict) -> str:
         if data.get("message"):
             return data["message"]
         if tool_name == "check_inventory":
-            rows = data["inventory"]
-            return (
-                f"{rows[0]['product_name']} has {data['total_quantity']} units "
-                f"in stock at {rows[0]['warehouse']}."
-            )
+            return cls._format_inventory(data)
         if tool_name == "get_order_status":
             order = data["order"]
             return (
                 f"Order {order['order_id']} is {order['status']}. Expected "
                 f"delivery: {order['expected_delivery']}."
             )
-        rows = data["orders"] if tool_name == "search_orders" else data["products"]
-        return json.dumps(rows, indent=2)
+        if tool_name == "search_orders":
+            return cls._format_rows(
+                data["orders"], cls._order_line, "matching order"
+            )
+        return cls._format_rows(
+            data["products"], cls._product_line, "matching product"
+        )
+
+    @staticmethod
+    def _format_inventory(data: dict) -> str:
+        rows = data["inventory"]
+        if len(rows) == 1:
+            row = rows[0]
+            return (
+                f"{row['product_name']} has {row['quantity']} units in stock "
+                f"at {row['warehouse']}."
+            )
+        lines = "\n".join(
+            f"- {row['product_name']} ({row['product_id']}): "
+            f"{row['quantity']} units at {row['warehouse']}"
+            for row in rows
+        )
+        return (
+            f"{len(rows)} stocked items totalling "
+            f"{data['total_quantity']} units:\n{lines}"
+        )
+
+    @staticmethod
+    def _product_line(row: dict) -> str:
+        return (
+            f"{row['product_id']} — {row['name']} ({row['category']}), "
+            f"${row['price']:,.2f}. {row['description']}"
+        )
+
+    @staticmethod
+    def _order_line(row: dict) -> str:
+        return (
+            f"Order {row['order_id']} — {row['quantity']} x "
+            f"{row['product_id']} for {row['customer']}, {row['status']}, "
+            f"expected {row['expected_delivery']}"
+        )
+
+    @staticmethod
+    def _format_rows(
+        rows: list[dict], line: Callable[[dict], str], label: str
+    ) -> str:
+        """Render tool rows as prose so the chat UI never shows raw JSON."""
+        if len(rows) == 1:
+            return line(rows[0])
+        listed = "\n".join(f"- {line(row)}" for row in rows)
+        return f"{len(rows)} {label}s:\n{listed}"
 
     async def close(self) -> None:
         await self.mcp_tools.close()
